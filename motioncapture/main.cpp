@@ -12,7 +12,7 @@ using namespace cv;
 
 int main( ) {
 //    VideoCapture cap(0);
-    string path = "/home/kassus/Desktop/PROJEKTY/projektWMA/machine-vision/outA.mkv";
+    string path = "../outA.mkv";
     VideoCapture cap( path );
     if(!cap.isOpened())
         return -1;
@@ -29,25 +29,23 @@ int main( ) {
     Mat frame;
     ECircle type;
 
-    PathType _pathBL, _pathBR, _pathUL, _pathUR;
+    PathType _pathBL, _pathBR, _pathUL, _pathUR; // bottom left, bottom right, upper left, upper right
     PathType circles;
     circles.reserve( NUMBER_OF_CIRCLES );
     int xs[ NUMBER_OF_CIRCLES ];
     int ys[ NUMBER_OF_CIRCLES ];
     bool F_FIRST;
     while( cap.read(frame) ) {
-        cvtColor(frame, frame, CV_BGR2GRAY);
-        GaussianBlur( frame, frame, Size(3, 3), 2, 2 );
-        threshold(frame, frame, 163, 255, THRESH_BINARY);
+        cvtColor(frame, frame, CV_BGR2GRAY); // convert to grayscale
+        GaussianBlur( frame, frame, Size(3, 3), 2, 2 ); // blur
+        threshold(frame, frame, 163, 255, THRESH_BINARY); // binarisation
 
-        erode(frame, frame, Mat(), Point(-1, -1), 3);
-        dilate(frame, frame, Mat(), Point(-1, -1), 3);
+        erode(frame, frame, Mat(), Point(-1, -1), 3); // erosion
+        dilate(frame, frame, Mat(), Point(-1, -1), 3); // dilation
 
         vector<PathType> contours;
         vector<Vec4i> hierarchy;
-        findContours( frame, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, Point(0, 0) );
-
-        // todo: KALMAN's filter ?
+        findContours( frame, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, Point(0, 0) ); // find contours of things
 
         cvtColor(frame, frame, CV_GRAY2BGR);
         Point2f* centers = new Point2f[ contours.size() ];
@@ -56,7 +54,7 @@ int main( ) {
         for (u_int i = 0; i < contours.size(); i++) {
             minEnclosingCircle(contours[i], centers[i], radiuses[i]);
             if ( validateCircle( radiuses[i], contours[i] ) ) {
-                circle( frame, centers[i], radiuses[i], Scalar(255, 0, 0), 3, 8, 0 );
+                circle( frame, centers[i], radiuses[i], Scalar(255, 0, 0), 2, 8, 0 );
                 circles.push_back( centers[i] );
             }
         }

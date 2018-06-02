@@ -2,7 +2,8 @@
 
 float diff_length_thresh = 80;
 float diff_area_thresh = 80;
-float min_radius_thresh = 10;
+float max_radius_thresh = 10;
+float min_radius_thresh = 4;
 u_int NUMBER_OF_CIRCLES = 4;
 
 // determine wheter contour is a marker or not
@@ -15,7 +16,8 @@ bool validateCircle(float p_ref_radius, const vector<Point>& p_contour) {
 
     if ( abs(ref_length - real_length) < diff_length_thresh
          && abs(ref_area - real_area) < diff_area_thresh
-         && p_ref_radius < min_radius_thresh)
+         && p_ref_radius < max_radius_thresh
+         && p_ref_radius > min_radius_thresh)
         return true;
     else
         return false;

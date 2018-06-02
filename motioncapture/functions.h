@@ -12,7 +12,6 @@ using namespace cv;
 
 extern float diff_length_thresh;
 extern float diff_area_thresh;
-extern float min_radius_thresh;
 extern u_int NUMBER_OF_CIRCLES;
 enum ECircle { BL, BR, UL, UR, N };
 typedef std::vector<Point> PathType;

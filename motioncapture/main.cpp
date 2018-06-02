@@ -1,29 +1,14 @@
+#include "functions.h"
+
+#include <cstdlib>
 #include <iostream>
+#include <QtGlobal>
 #include <cmath>
+#include <vector>
 #include <opencv2/opencv.hpp>
 #include <opencv2/highgui/highgui.hpp>
 using namespace std;
 using namespace cv;
-
-float diff_length_thresh = 100;
-float diff_area_thresh = 100;
-float min_radius_thresh = 10;
-
-// determine wheter contour is a marker or not
-bool validateCircle(float p_ref_radius, const vector<Point>& p_contour) {
-    float ref_length = 2 * M_PI * p_ref_radius;
-    float real_length = arcLength(p_contour, true);
-
-    float ref_area = M_PI * p_ref_radius * p_ref_radius;
-    float real_area = contourArea(p_contour);
-
-    if ( abs(ref_length - real_length) < diff_length_thresh
-         && abs(ref_area - real_area) < diff_area_thresh
-         && p_ref_radius < min_radius_thresh)
-        return true;
-    else
-        return false;
-}
 
 int main( ) {
 //    VideoCapture cap(0);
@@ -42,34 +27,87 @@ int main( ) {
 
     namedWindow("main",1);
     Mat frame;
-//    for(;;) {
+    ECircle type;
+
+    PathType _pathBL, _pathBR, _pathUL, _pathUR;
+    PathType circles;
+    circles.reserve( NUMBER_OF_CIRCLES );
+    int xs[ NUMBER_OF_CIRCLES ];
+    int ys[ NUMBER_OF_CIRCLES ];
+    bool F_FIRST;
     while( cap.read(frame) ) {
-//        cap >> frame; // get a new frame from camera
         cvtColor(frame, frame, CV_BGR2GRAY);
-//        GaussianBlur( frame, frame, Size(3, 3), 2, 2 );
-        // or ADAPTIVE_THRESH_MEAN/GAUSSIAN_C
-        //adaptiveThreshold(frame, frame, 255, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, 17, 0);
-        threshold(frame, frame, 160, 255, THRESH_BINARY);
+        GaussianBlur( frame, frame, Size(3, 3), 2, 2 );
+        threshold(frame, frame, 163, 255, THRESH_BINARY);
 
         erode(frame, frame, Mat(), Point(-1, -1), 3);
         dilate(frame, frame, Mat(), Point(-1, -1), 3);
 
-        vector<vector<Point> > contours;
+        vector<PathType> contours;
         vector<Vec4i> hierarchy;
         findContours( frame, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, Point(0, 0) );
-//        for( int i = 0; i< contours.size(); i++ ) {
-//             Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
-//             drawContours( frame, contours, i, color, 2, 8, hierarchy, 0, Point() );
-//        }
+
+        // todo: KALMAN's filter ?
 
         cvtColor(frame, frame, CV_GRAY2BGR);
         Point2f* centers = new Point2f[ contours.size() ];
         float* radiuses = new float[ contours.size() ];
-        for (int i = 0; i < contours.size(); i++) {
+        circles.clear();
+        for (u_int i = 0; i < contours.size(); i++) {
             minEnclosingCircle(contours[i], centers[i], radiuses[i]);
-            if ( validateCircle( radiuses[i], contours[i] ) )
-                circle(frame, centers[i], radiuses[i], Scalar(255, 0, 0), 3, 8, 0);
+            if ( validateCircle( radiuses[i], contours[i] ) ) {
+                circle( frame, centers[i], radiuses[i], Scalar(255, 0, 0), 3, 8, 0 );
+                circles.push_back( centers[i] );
+            }
         }
+
+        if( F_FIRST == true && circles.size() == NUMBER_OF_CIRCLES ) {
+            for (u_int i = 0; i < circles.size(); i++) {
+                xs[i] = circles[i].x;
+                ys[i] = circles[i].y;
+            }
+            qsort(xs, NUMBER_OF_CIRCLES, sizeof(int), compare);
+            qsort(ys, NUMBER_OF_CIRCLES, sizeof(int), compare);
+            // add initial points to proper vectors
+            for (u_int i = 0; i < circles.size(); i++) {
+                if ( (circles[i].x == xs[0] || circles[i].x == xs[1]) &&
+                     (circles[i].y == ys[0] || circles[i].y == ys[1]) ) {
+                    _pathBL.push_back(circles[i]);
+                }
+                else if ( (circles[i].x == xs[0] || circles[i].x == xs[1]) &&
+                          (circles[i].y == ys[2] || circles[i].y == ys[3]) ) {
+                    _pathBR.push_back(circles[i]);
+                }
+                else if ( (circles[i].x == xs[2] || circles[i].x == xs[3]) &&
+                          (circles[i].y == ys[0] || circles[i].y == ys[1]) ) {
+                    _pathUL.push_back(circles[i]);
+                }
+                else if ( (circles[i].x == xs[2] || circles[i].x == xs[3]) &&
+                          (circles[i].y == ys[2] || circles[i].y == ys[3]) ) {
+                    _pathUR.push_back(circles[i]);
+                }
+            }
+            F_FIRST = false;
+        }
+        else {
+            // add positions to the corresponding vectors
+            for (u_int i = 0; i < circles.size(); i++) {
+                type = findCircle(circles[i], _pathBL, _pathBR, _pathUL, _pathUR);
+                if( type == UR )
+                    _pathUR.push_back( circles[i] );
+                else if( type == UL )
+                    _pathUL.push_back( circles[i] );
+                else if( type == BR )
+                    _pathBR.push_back( circles[i] );
+                else if( type == BL )
+                    _pathBL.push_back( circles[i] );
+            }
+        }
+
+        drawPath(_pathUR, Scalar(0, 255, 255), frame); // orange
+        drawPath(_pathUL, Scalar(255, 0, 0), frame); // blue
+        drawPath(_pathBL, Scalar(0, 0, 255), frame); // red
+        drawPath(_pathBR, Scalar(0, 255, 0), frame); // green
 
 //        HoughCircles(frame, circles, CV_HOUGH_GRADIENT, 1, frame.rows/8, 200, 100, 0, 0 );
 //        for( size_t i = 0; i < circles.size(); i++) {
@@ -81,7 +119,7 @@ int main( ) {
 //        if( circles.size() ) cout << "znalezionych okregow: " << circles.size();
         //video.write(frame);
         imshow("main", frame);
-        if(waitKey(60) >= 0) break;
+        if(waitKey(30) >= 0) break;
     }
     return 0;
 }

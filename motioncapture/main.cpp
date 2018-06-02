@@ -10,32 +10,52 @@
 using namespace std;
 using namespace cv;
 
-int main( ) {
-//    VideoCapture cap(0);
-    string path = "../outA.mkv";
-    VideoCapture cap( path );
-    if(!cap.isOpened())
-        return -1;
+bool modeWrite = true; // if this flag is set, the program generates video
+bool modeLive = false; // if this flag is set, the program captures the video from default video device
 
-//    int frame_width = cap.get(CV_CAP_PROP_FRAME_WIDTH);
-//    int frame_height = cap.get(CV_CAP_PROP_FRAME_HEIGHT);
-//    VideoWriter video("../outA.avi",
-//                      CV_FOURCC('M','J','P','G'),
-//                      10,
-//                      Size( frame_width,frame_height ),
-//                      true);
+int main( ) {
+    VideoCapture cap;
+    string path;
+    if (modeLive)
+        cap = VideoCapture(0);
+    else {
+        path = "../outA.mkv";
+        cap = VideoCapture( path );
+        if( !cap.isOpened() )
+            return -1;
+    }
+
+    int frame_width, frame_height;
+    VideoWriter video;
+    if (modeWrite == true) {
+        frame_width = cap.get(CV_CAP_PROP_FRAME_WIDTH);
+        frame_height = cap.get(CV_CAP_PROP_FRAME_HEIGHT);
+        video = VideoWriter("../outB.avi",
+                          CV_FOURCC('M','J','P','G'),
+                          10,
+                          Size( frame_width,frame_height ),
+                          true);
+    }
 
     namedWindow("main",1);
-    Mat frame;
+    Mat frame, outframe;
     ECircle type;
 
-    PathType _pathBL, _pathBR, _pathUL, _pathUR; // bottom left, bottom right, upper left, upper right
+    PathType _pathUL_, _pathBL_, _pathUR_, _pathBR_; // bottom left, bottom right, upper left, upper right
     PointsType circles;
     circles.reserve( NUMBER_OF_CIRCLES );
     int xs[ NUMBER_OF_CIRCLES ];
     int ys[ NUMBER_OF_CIRCLES ];
-    bool F_FIRST;
+    bool F_FIRST = true;
+    path_el path_tmp;
+    path_tmp.frame = 0;
+//    u_int frame_counterUL = 1,
+//            frame_counterUR = 1,
+//            frame_counterBL = 1,
+//            frame_counterBR = 1;
     while( cap.read(frame) ) {
+        outframe = frame.clone();
+        path_tmp.frame++;
         cvtColor(frame, frame, CV_BGR2GRAY); // convert to grayscale
         GaussianBlur( frame, frame, Size(3, 3), 2, 2 ); // blur
         threshold(frame, frame, 163, 255, THRESH_BINARY); // binarisation
@@ -43,7 +63,7 @@ int main( ) {
         erode(frame, frame, Mat(), Point(-1, -1), 3); // erosion
         dilate(frame, frame, Mat(), Point(-1, -1), 3); // dilation
 
-        vector<PathType> contours;
+        vector<PointsType> contours;
         vector<Vec4i> hierarchy;
         findContours( frame, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, Point(0, 0) ); // find contours of things
 
@@ -54,12 +74,12 @@ int main( ) {
         for (u_int i = 0; i < contours.size(); i++) {
             minEnclosingCircle(contours[i], centers[i], radiuses[i]);
             if ( validateCircle( radiuses[i], contours[i] ) ) {
-                circle( frame, centers[i], radiuses[i], Scalar(255, 0, 0), 2, 8, 0 );
+                circle( outframe, centers[i], radiuses[i], Scalar(255, 0, 0), 2, 8, 0 );
                 circles.push_back( centers[i] );
             }
         }
 
-        if( F_FIRST == true && circles.size() == NUMBER_OF_CIRCLES ) {
+        if( F_FIRST == true && circles.size() == NUMBER_OF_CIRCLES ) { // todo: add circles position validation for initialization
             for (u_int i = 0; i < circles.size(); i++) {
                 xs[i] = circles[i].x;
                 ys[i] = circles[i].y;
@@ -70,19 +90,23 @@ int main( ) {
             for (u_int i = 0; i < circles.size(); i++) {
                 if ( (circles[i].x == xs[0] || circles[i].x == xs[1]) &&
                      (circles[i].y == ys[0] || circles[i].y == ys[1]) ) {
-                    _pathBL.push_back(circles[i]);
+                    path_tmp.point = circles[i];
+                    _pathUL_.push_back(path_tmp);
                 }
                 else if ( (circles[i].x == xs[0] || circles[i].x == xs[1]) &&
                           (circles[i].y == ys[2] || circles[i].y == ys[3]) ) {
-                    _pathBR.push_back(circles[i]);
+                    path_tmp.point = circles[i];
+                    _pathBL_.push_back(path_tmp);
                 }
                 else if ( (circles[i].x == xs[2] || circles[i].x == xs[3]) &&
                           (circles[i].y == ys[0] || circles[i].y == ys[1]) ) {
-                    _pathUL.push_back(circles[i]);
+                    path_tmp.point = circles[i];
+                    _pathUR_.push_back(path_tmp);
                 }
                 else if ( (circles[i].x == xs[2] || circles[i].x == xs[3]) &&
                           (circles[i].y == ys[2] || circles[i].y == ys[3]) ) {
-                    _pathUR.push_back(circles[i]);
+                    path_tmp.point = circles[i];
+                    _pathBR_.push_back(path_tmp);
                 }
             }
             F_FIRST = false;
@@ -90,34 +114,40 @@ int main( ) {
         else {
             // add positions to the corresponding vectors
             for (u_int i = 0; i < circles.size(); i++) {
-                type = findCircle(circles[i], _pathBL, _pathBR, _pathUL, _pathUR);
-                if( type == UR )
-                    _pathUR.push_back( circles[i] );
-                else if( type == UL )
-                    _pathUL.push_back( circles[i] );
-                else if( type == BR )
-                    _pathBR.push_back( circles[i] );
-                else if( type == BL )
-                    _pathBL.push_back( circles[i] );
+                type = findCircle(circles[i], _pathUL_, _pathBL_, _pathUR_, _pathBR_);
+                if( type == UR ) {
+                    path_tmp.point = circles[i];
+                    _pathBR_.push_back( path_tmp );
+                }
+                else if( type == UL ) {
+                    path_tmp.point = circles[i];
+                    _pathUR_.push_back( path_tmp );
+                }
+                else if( type == BR ) {
+                    path_tmp.point = circles[i];
+                    _pathBL_.push_back( path_tmp );
+                }
+                else if( type == BL ) {
+                    path_tmp.point = circles[i];
+                    _pathUL_.push_back( path_tmp );
+                }
             }
         }
 
-        drawPath(_pathUR, Scalar(0, 255, 255), frame); // orange
-        drawPath(_pathUL, Scalar(255, 0, 0), frame); // blue
-        drawPath(_pathBL, Scalar(0, 0, 255), frame); // red
-        drawPath(_pathBR, Scalar(0, 255, 0), frame); // green
+//        filterPath(_pathUR_);
 
-//        HoughCircles(frame, circles, CV_HOUGH_GRADIENT, 1, frame.rows/8, 200, 100, 0, 0 );
-//        for( size_t i = 0; i < circles.size(); i++) {
-//            Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
-//                  int radius = cvRound(circles[i][2]);
-//                  circle( frame, center, 3, Scalar(0,255,0), -1, 8, 0 );
-//                  circle( frame, center, radius, Scalar(0,0,255), 3, 8, 0 );
-//        }
-//        if( circles.size() ) cout << "znalezionych okregow: " << circles.size();
-        //video.write(frame);
-        imshow("main", frame);
-        if(waitKey(30) >= 0) break;
+        drawPath(_pathBR_, Scalar(0, 255, 255), outframe); // orange
+        drawPath(_pathUR_, Scalar(255, 0, 0), outframe); // blue
+        drawPath(_pathUL_, Scalar(0, 0, 255), outframe); // red
+        drawPath(_pathBL_, Scalar(0, 255, 0), outframe); // green
+
+        // todo: pattern recognition based on points in paths
+
+
+        if (modeWrite == true)
+            video.write(outframe);
+        imshow("main", outframe);
+        if(waitKey(90) >= 0) break;
     }
     return 0;
 }

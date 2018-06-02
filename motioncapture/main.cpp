@@ -30,7 +30,7 @@ int main( ) {
     ECircle type;
 
     PathType _pathBL, _pathBR, _pathUL, _pathUR; // bottom left, bottom right, upper left, upper right
-    PathType circles;
+    PointsType circles;
     circles.reserve( NUMBER_OF_CIRCLES );
     int xs[ NUMBER_OF_CIRCLES ];
     int ys[ NUMBER_OF_CIRCLES ];

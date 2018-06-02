@@ -14,7 +14,15 @@ extern float diff_length_thresh;
 extern float diff_area_thresh;
 extern u_int NUMBER_OF_CIRCLES;
 enum ECircle { BL, BR, UL, UR, N };
+
+//struct path_el {
+//    Point point;
+//    u_int frame;
+//};
+//typedef std::vector<path_el> PathType;
+
 typedef std::vector<Point> PathType;
+typedef std::vector<Point> PointsType;
 
 // determine wheter contour is a marker or not
 bool validateCircle(float p_ref_radius, const vector<Point>& p_contour);

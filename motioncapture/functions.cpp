@@ -95,22 +95,82 @@ int compare (const void *p1, const void *p2) {
 
 void filterPath(PathType& _p) {
     u_int lastFrame = _p[ _p.size()-1 ].frame;
+    if( lastFrame < 3 )
+        return;
+    if( lastFrame == _p.size() )
+        return;
     vector<path_el>::iterator it = _p.begin();
     path_el tmp;
-    // calc "speed"
+    Point speed;
     // search for missing points
-    for (u_int i = 1; i <= lastFrame; i++) {
-        if(_p[i].frame != i) { // if there is an empty point in the path...
-            tmp.frame = i;
+    for (u_int i = 2; i <= lastFrame; i++) {
+        if(_p[i-1].frame != i) { // if there is an empty point in the path...
+            tmp.frame = i; // assign missing frame number
+
+//            speed = Point(2, 2);//(_p[i-1].point - _p[i-2].point)/100;
             tmp.point = _p[i-1].point;
-//            it++;
-            _p.insert(it, tmp);
-//            it--;
+
+            it = _p.insert(it, tmp);
         }
-//        it++;
-//        if( distance(_p[i].point, _p[i-1].point) > (_p[i].frame - _p[i-1].frame)*5 ) {
-//            _p[i].point = _p[i-1].point;
-//        }
+        it++;
     }
     return;
+}
+
+Point calcMeanPoint(const PathType& _p) {
+    u_int HOWMANY = 5;
+    if ( HOWMANY <= _p.size() )
+        HOWMANY = _p.size()-1;
+    int xs = 0;
+    int ys = 0;
+    Point mean;
+    for(u_int i = 0; i <= HOWMANY; i++) {
+        xs += _p[i].point.x;
+        ys += _p[i].point.y;
+    }
+    mean.x = xs / HOWMANY;
+    mean.y = ys / HOWMANY;
+    return mean;
+}
+
+EPosition recognizePosition(const PathType& _p) {
+    Point centerpoint = calcMeanPoint(_p);
+    Point lastpoint = _p[ _p.size()-1 ].point;
+    Point difference = lastpoint - centerpoint;
+    int eps = 15;
+    if( distance(centerpoint, lastpoint) < eps) {
+        return POS_CENTER;
+    }
+    else if( difference.x < -eps && abs(difference.y) < eps ) {
+        return POS_LEFT;
+    }
+    else if( abs(difference.x) < eps && difference.y < -eps ) {
+        return POS_UP;
+    }
+    else if( abs(difference.x) < eps && difference.y > eps ) {
+        return POS_DOWN;
+    }
+    else if( difference.x > eps && abs(difference.y) < eps ) {
+        return POS_RIGHT;
+    }
+    else {
+        return POS_UNKNOWN;
+    }
+}
+
+void printPosition(EPosition position, string markername) {
+    string positionname;
+    if (position == POS_CENTER)
+        positionname = "center";
+    else if (position == POS_RIGHT)
+        positionname = "right";
+    else if (position == POS_LEFT)
+        positionname = "left";
+    else if (position == POS_DOWN)
+        positionname = "down";
+    else if (position == POS_UP)
+        positionname = "up";
+    else
+        positionname = "unknown";
+    cout << markername << " is " << positionname << "\n";
 }

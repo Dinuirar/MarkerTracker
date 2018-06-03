@@ -14,6 +14,7 @@ extern float diff_length_thresh;
 extern float diff_area_thresh;
 extern u_int NUMBER_OF_CIRCLES;
 enum ECircle { BL, BR, UL, UR, N };
+enum EPosition { POS_UP, POS_DOWN, POS_LEFT, POS_RIGHT, POS_CENTER, POS_UNKNOWN };
 
 struct path_el {
     Point point;
@@ -36,6 +37,8 @@ ECircle findCircle(Point point,
                    PathType _pUR);
 
 int compare (const void* p1, const void* p2);
-void filterPath(PathType&);
+void filterPath(PathType& _p);
+EPosition recognizePosition(const PathType& _p);
+void printPosition(EPosition, string);
 
 #endif // FUNCTIONS_H

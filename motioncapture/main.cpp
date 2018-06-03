@@ -10,8 +10,9 @@
 using namespace std;
 using namespace cv;
 
-bool modeWrite = true; // if this flag is set, the program generates video
+bool modeWrite = false; // if this flag is set, the program generates video
 bool modeLive = false; // if this flag is set, the program captures the video from default video device
+bool modeValidate = false; // if this flag is set, the program prints the position of selected marker to standard output
 
 int main( ) {
     VideoCapture cap;
@@ -37,10 +38,19 @@ int main( ) {
                           true);
     }
 
+    u_int marker = 4;
+    if( modeValidate ) {
+        cout << "Choose marker ("
+                "1 - bottom left, "
+                "2 - bottom right, "
+                "3 - upper left, "
+                "4 - upper right):";
+        cin >> marker;
+    }
+
     namedWindow("main",1);
     Mat frame, outframe;
     ECircle type;
-
     PathType _pathUL_, _pathBL_, _pathUR_, _pathBR_; // bottom left, bottom right, upper left, upper right
     PointsType circles;
     circles.reserve( NUMBER_OF_CIRCLES );
@@ -49,10 +59,6 @@ int main( ) {
     bool F_FIRST = true;
     path_el path_tmp;
     path_tmp.frame = 0;
-//    u_int frame_counterUL = 1,
-//            frame_counterUR = 1,
-//            frame_counterBL = 1,
-//            frame_counterBR = 1;
     while( cap.read(frame) ) {
         outframe = frame.clone();
         path_tmp.frame++;
@@ -134,15 +140,29 @@ int main( ) {
             }
         }
 
-//        filterPath(_pathUR_);
+        filterPath(_pathUR_);
+        filterPath(_pathUL_);
+        filterPath(_pathBR_);
+        filterPath(_pathBL_);
 
         drawPath(_pathBR_, Scalar(0, 255, 255), outframe); // orange
         drawPath(_pathUR_, Scalar(255, 0, 0), outframe); // blue
         drawPath(_pathUL_, Scalar(0, 0, 255), outframe); // red
         drawPath(_pathBL_, Scalar(0, 255, 0), outframe); // green
 
-        // todo: pattern recognition based on points in paths
-
+        // pattern recognition based on points in paths
+        if (marker == 1) { // bottom left
+            printPosition( recognizePosition(_pathBL_), "bottom left" );
+        }
+        else if (marker == 2) { // bottom right
+            printPosition( recognizePosition(_pathBR_), "bottom right");
+        }
+        else if (marker == 3) { // upper left
+            printPosition( recognizePosition(_pathUL_), "upper left");
+        }
+        else if (marker == 4) { // upper right
+            printPosition( recognizePosition(_pathUR_), "upper right");
+        }
 
         if (modeWrite == true)
             video.write(outframe);

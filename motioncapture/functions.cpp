@@ -1,23 +1,29 @@
 #include "functions.h"
 
-float diff_length_thresh = 50;
-float diff_area_thresh = 50;
-float max_radius_thresh = 100;
-float min_radius_thresh = 4;
+int markersX1 = 180;
+int markersX2 = 380;
+int markersY1 = 217;
+int markersY2 = 317;
+
+float diff_length_thresh = 100;
+float diff_area_thresh = 100;
+float max_radius_thresh = 10;
+float min_radius_thresh = 2;
 u_int NUMBER_OF_CIRCLES = 4;
 
-// determine wheter contour is a marker or not
+// determine whether contour is a marker or not
 bool validateCircle(float p_ref_radius, const vector<Point>& p_contour) {
+    if( !(p_ref_radius < max_radius_thresh && p_ref_radius > min_radius_thresh) )
+        return false;
+//    return true;
+
     float ref_length = 2 * M_PI * p_ref_radius;
     float real_length = arcLength(p_contour, true);
-
     float ref_area = M_PI * p_ref_radius * p_ref_radius;
     float real_area = contourArea(p_contour);
 
     if ( abs(ref_length - real_length) < diff_length_thresh
-         && abs(ref_area - real_area) < diff_area_thresh
-         && p_ref_radius < max_radius_thresh
-         && p_ref_radius > min_radius_thresh)
+         && abs(ref_area - real_area) < diff_area_thresh )
         return true;
     else
         return false;
@@ -101,15 +107,11 @@ void filterPath(PathType& _p) {
         return;
     vector<path_el>::iterator it = _p.begin();
     path_el tmp;
-    Point speed;
     // search for missing points
     for (u_int i = 2; i <= lastFrame; i++) {
         if(_p[i-1].frame != i) { // if there is an empty point in the path...
             tmp.frame = i; // assign missing frame number
-
-//            speed = Point(2, 2);//(_p[i-1].point - _p[i-2].point)/100;
             tmp.point = _p[i-1].point;
-
             it = _p.insert(it, tmp);
         }
         it++;

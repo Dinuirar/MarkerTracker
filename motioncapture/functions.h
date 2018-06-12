@@ -10,6 +10,11 @@
 using namespace std;
 using namespace cv;
 
+extern int markersX1;
+extern int markersX2;
+extern int markersY1;
+extern int markersY2;
+
 extern float diff_length_thresh;
 extern float diff_area_thresh;
 extern u_int NUMBER_OF_CIRCLES;

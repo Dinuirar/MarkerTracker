@@ -1,5 +1,4 @@
 #include "functions.h"
-
 #include <cstdlib>
 #include <iostream>
 #include <QtGlobal>
@@ -12,8 +11,8 @@ using namespace cv;
 
 bool modeWrite = false; // if this flag is set, the program generates video
 bool modeLive = false; // if this flag is set, the program captures the video from default video device
-bool modeValidate = false; // if this flag is set, the program prints the position of selected marker to standard output
-
+bool modeValidate = false; // if this flag is set, the program asks the user for marker's number and
+                           // prints the position of selected marker to standard output
 int main( ) {
     VideoCapture cap;
     string path;
@@ -31,7 +30,7 @@ int main( ) {
     if (modeWrite == true) {
         frame_width = cap.get(CV_CAP_PROP_FRAME_WIDTH);
         frame_height = cap.get(CV_CAP_PROP_FRAME_HEIGHT);
-        video = VideoWriter("../outB.avi",
+        video = VideoWriter("../outYT.avi",
                           CV_FOURCC('M','J','P','G'),
                           10,
                           Size( frame_width,frame_height ),
@@ -48,6 +47,16 @@ int main( ) {
         cin >> marker;
     }
 
+    vector<PointsType> new_contours;
+    vector<Vec4i> new_hierarchy;
+    Point2f* new_centers;
+    float* new_radiuses;
+
+    vector<PointsType> contours;
+    vector<Vec4i> hierarchy;
+    Point2f* centers;
+    float* radiuses;
+
     namedWindow("main",1);
     Mat frame, outframe;
     ECircle type;
@@ -59,23 +68,53 @@ int main( ) {
     bool F_FIRST = true;
     path_el path_tmp;
     path_tmp.frame = 0;
+    Mat thresholded;
     while( cap.read(frame) ) {
+        //circle(frame, Point(300, 125), 43, Scalar(20, 20, 20), CV_FILLED, 8);
         outframe = frame.clone();
         path_tmp.frame++;
         cvtColor(frame, frame, CV_BGR2GRAY); // convert to grayscale
-        GaussianBlur( frame, frame, Size(3, 3), 2, 2 ); // blur
-        threshold(frame, frame, 163, 255, THRESH_BINARY); // binarisation
 
+        /////////////////////////////////////////////////////////////////
+        Mat mask;
+        threshold(frame, mask, 90, 1, THRESH_BINARY); // binarisation
+        thresholded = frame.clone();
+        dilate(thresholded, thresholded, Mat(), Point(-1, -1), 3);
+        adaptiveThreshold( thresholded, thresholded, 255, CV_ADAPTIVE_THRESH_MEAN_C, CV_THRESH_BINARY, 41, 0);
+        erode(thresholded, thresholded, Mat(), Point(-1, -1), 3);
+        dilate(thresholded, thresholded, Mat(), Point(-1, -1), 1);
+        erode(thresholded, thresholded, Mat(), Point(-1, -1), 3);
+        imshow("kontury2", thresholded);
+        thresholded = thresholded.mul(mask);
+        new_contours.clear();
+        new_hierarchy.clear();
+        findContours( thresholded, new_contours, new_hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, Point(0, 0) ); // find contours of things
+        new_centers = new Point2f[ new_contours.size() ];
+        new_radiuses = new float[ new_contours.size() ];
+        cvtColor( thresholded, thresholded, CV_GRAY2BGR );
+        for (u_int i = 0; i < new_contours.size(); i++) {
+            minEnclosingCircle(new_contours[i], new_centers[i], new_radiuses[i]);
+            if ( validateCircle( new_radiuses[i], new_contours[i] ) ) {
+                circle( thresholded, new_centers[i], new_radiuses[i], Scalar(200, 100, 30), 2, 8, 0 );
+                circles.push_back( new_centers[i] );
+            }
+        }
+        delete [] new_centers;
+        delete [] new_radiuses;
+        imshow("kontury", thresholded);
+        /////////////////////////////////////////////////////////////////
+
+        threshold(frame, frame, 163, 255, THRESH_BINARY); // binarisation
         erode(frame, frame, Mat(), Point(-1, -1), 3); // erosion
         dilate(frame, frame, Mat(), Point(-1, -1), 3); // dilation
 
-        vector<PointsType> contours;
-        vector<Vec4i> hierarchy;
+        contours.clear();
+        hierarchy.clear();
         findContours( frame, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, Point(0, 0) ); // find contours of things
 
         cvtColor(frame, frame, CV_GRAY2BGR);
-        Point2f* centers = new Point2f[ contours.size() ];
-        float* radiuses = new float[ contours.size() ];
+        centers = new Point2f[ contours.size() ];
+        radiuses = new float[ contours.size() ];
         circles.clear();
         for (u_int i = 0; i < contours.size(); i++) {
             minEnclosingCircle(contours[i], centers[i], radiuses[i]);
@@ -84,6 +123,8 @@ int main( ) {
                 circles.push_back( centers[i] );
             }
         }
+        delete [] centers;
+        delete [] radiuses;
 
         if( F_FIRST == true && circles.size() == NUMBER_OF_CIRCLES ) { // todo: add circles position validation for initialization
             for (u_int i = 0; i < circles.size(); i++) {
@@ -164,10 +205,15 @@ int main( ) {
             printPosition( recognizePosition(_pathUR_), "upper right");
         }
 
+//        circle(outframe, Point(markersX1, markersY1), 10, Scalar(200, 200, 200), 1, 8);
+//        circle(outframe, Point(markersX1, markersY2), 10, Scalar(200, 200, 200), 1, 8);
+//        circle(outframe, Point(markersX2, markersY1), 10, Scalar(200, 200, 200), 1, 8);
+//        circle(outframe, Point(markersX2, markersY2), 10, Scalar(200, 200, 200), 1, 8);
+
         if (modeWrite == true)
             video.write(outframe);
         imshow("main", outframe);
-        if(waitKey(90) >= 0) break;
+        if(waitKey(70) >= 0) break;
     }
     return 0;
 }

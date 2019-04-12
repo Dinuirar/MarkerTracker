@@ -1,2 +1,2 @@
-# machine-vision
-Project for Machine Vision subject at my university.
+# Marker Tracker
+Marker Tracker for a Machine Vision project, using OpenCV library for basic operations on images. 
